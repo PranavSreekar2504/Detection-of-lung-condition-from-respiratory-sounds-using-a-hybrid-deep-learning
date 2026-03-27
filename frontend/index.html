@@ -795,12 +795,6 @@
 
                 <div class="conditions-grid">
                     <div class="condition-item">
-                        <span class="condition-badge normal">✓ NORMAL</span>
-                        <div class="condition-name">Normal</div>
-                        <div class="condition-description">Healthy respiratory function with no abnormal patterns detected.</div>
-                    </div>
-
-                    <div class="condition-item">
                         <span class="condition-badge abnormal">⚠ ABNORMAL</span>
                         <div class="condition-name">Asthma</div>
                         <div class="condition-description">Chronic airway inflammation causing breathing difficulty and wheezing.</div>
@@ -1028,7 +1022,6 @@
             const allPredictions = data.all_predictions || {};
 
             const severityColors = {
-                'Normal': { icon: '✓', color: '#059669', bg: '#ecfdf5' },
                 'Moderate': { icon: '⚠', color: '#d97706', bg: '#fffbeb' },
                 'High': { icon: '‼', color: '#ea580c', bg: '#fff7ed' },
                 'Critical': { icon: '🚨', color: '#dc2626', bg: '#fef2f2' }
