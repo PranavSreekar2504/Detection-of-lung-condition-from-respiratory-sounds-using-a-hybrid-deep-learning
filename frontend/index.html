@@ -1032,6 +1032,7 @@
             // Build predictions list
             let predictionsHTML = '<div style="margin-top: 1.5rem;"><h4 style="margin-bottom: 1rem; color: var(--primary);">All Predictions:</h4>';
             Object.entries(allPredictions).forEach(([name, conf]) => {
+                if (name === 'Normal') return; // Skip Normal class
                 const percentage = (conf * 100).toFixed(2);
                 const isMain = name === prediction;
                 predictionsHTML += `
