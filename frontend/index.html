@@ -234,6 +234,134 @@
             margin-top: 2rem;
         }
 
+        .mode-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .mode-btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            font-size: 1rem;
+        }
+
+        .mode-btn.active {
+            color: var(--primary);
+        }
+
+        .mode-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1rem;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .mode-content {
+            display: none;
+        }
+
+        .mode-content.active {
+            display: block;
+        }
+
+        .recording-area {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.05) 0%, rgba(220, 38, 38, 0.02) 100%);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 2.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .recording-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #dc2626;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .recording-time {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .recording-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .btn-record {
+            padding: 0.95rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #dc2626;
+            color: white;
+        }
+
+        .btn-record:hover:not(:disabled) {
+            background: #b91c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+        }
+
+        .btn-stop {
+            background: var(--text-muted);
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: var(--text-dark);
+        }
+
+        .btn-discard {
+            background: transparent;
+            color: var(--text-muted);
+            border: 2px solid var(--border);
+        }
+
+        .btn-discard:hover:not(:disabled) {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .recording-status {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
         .btn {
             padding: 0.95rem 2rem;
             border: none;
@@ -673,29 +801,84 @@
         <!-- ANALYSIS SECTION -->
         <section class="section" id="analysis">
             <div class="upload-section">
-                <h2 class="section-title">Upload Respiratory Audio</h2>
+                <h2 class="section-title">Respiratory Audio Analysis</h2>
                 <p class="section-subtitle">Record or upload a clear respiratory sound sample for analysis</p>
 
-                <div class="upload-area" id="upload-area">
-                    <div class="upload-icon">
-                        <i class="fas fa-microphone"></i>
-                    </div>
-                    <p class="upload-text-main">Click to upload or drag and drop</p>
-                    <p class="upload-text-sub">Supported formats: WAV, MP3, FLAC (Max 50MB)</p>
-                </div>
-
-                <input type="file" id="file-input" accept="audio/*">
-
-                <div class="file-info" id="file-info">
-                    <i class="fas fa-check-circle file-info-icon"></i>
-                    <span class="file-info-text" id="file-name"></span>
-                </div>
-
-                <div class="btn-container">
-                    <button class="btn btn-primary" id="predict-btn" disabled>
-                        <i class="fas fa-brain"></i>
-                        Analyze Audio
+                <!-- Mode Selector -->
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="upload">
+                        <i class="fas fa-upload"></i> Upload File
                     </button>
+                    <button class="mode-btn" data-mode="record">
+                        <i class="fas fa-microphone"></i> Live Recording
+                    </button>
+                </div>
+
+                <!-- Upload Mode -->
+                <div class="mode-content active" id="upload-mode">
+                    <div class="upload-area" id="upload-area">
+                        <div class="upload-icon">
+                            <i class="fas fa-microphone"></i>
+                        </div>
+                        <p class="upload-text-main">Click to upload or drag and drop</p>
+                        <p class="upload-text-sub">Supported formats: WAV, MP3, FLAC (Max 50MB)</p>
+                    </div>
+
+                    <input type="file" id="file-input" accept="audio/*">
+
+                    <div class="file-info" id="file-info">
+                        <i class="fas fa-check-circle file-info-icon"></i>
+                        <span class="file-info-text" id="file-name"></span>
+                    </div>
+
+                    <div class="btn-container">
+                        <button class="btn btn-primary" id="predict-btn" disabled>
+                            <i class="fas fa-brain"></i>
+                            Analyze Audio
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recording Mode -->
+                <div class="mode-content" id="record-mode">
+                    <div class="recording-area" id="recording-area">
+                        <div id="recording-status-indicator" style="display: none;">
+                            <span class="recording-indicator"></span>
+                            <span>Recording in progress...</span>
+                        </div>
+                        <div id="recording-idle-text">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">
+                                <i class="fas fa-microphone"></i>
+                            </div>
+                            <p class="upload-text-main">Ready to record</p>
+                            <p class="upload-text-sub">Click "Start Recording" to begin capturing audio</p>
+                        </div>
+                        <div class="recording-time" id="recording-time" style="display: none;">00:00</div>
+                    </div>
+
+                    <div class="recording-controls">
+                        <button class="btn btn-record" id="start-record-btn">
+                            <i class="fas fa-circle"></i>
+                            Start Recording
+                        </button>
+                        <button class="btn btn-stop" id="stop-record-btn" disabled style="display: none;">
+                            <i class="fas fa-stop"></i>
+                            Stop Recording
+                        </button>
+                        <button class="btn btn-discard" id="discard-record-btn" disabled style="display: none;">
+                            <i class="fas fa-trash"></i>
+                            Discard
+                        </button>
+                    </div>
+
+                    <div class="recording-status" id="recording-status-text"></div>
+
+                    <div class="btn-container">
+                        <button class="btn btn-primary" id="analyze-record-btn" disabled>
+                            <i class="fas fa-brain"></i>
+                            Analyze Recording
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1107,6 +1290,173 @@
             `;
             resultContainer.classList.add('show');
         }
+
+        // ===== LIVE RECORDING FUNCTIONALITY =====
+        let mediaRecorder;
+        let recordedChunks = [];
+        let recordingStartTime;
+        let recordingTimer;
+        let recordedBlob;
+
+        // Mode selector
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                
+                // Update active button
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Update active content
+                document.querySelectorAll('.mode-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(`${mode}-mode`).classList.add('active');
+            });
+        });
+
+        // Recording buttons
+        const startRecordBtn = document.getElementById('start-record-btn');
+        const stopRecordBtn = document.getElementById('stop-record-btn');
+        const discardRecordBtn = document.getElementById('discard-record-btn');
+        const analyzeRecordBtn = document.getElementById('analyze-record-btn');
+        const recordingTimeDisplay = document.getElementById('recording-time');
+        const recordingStatusIndicator = document.getElementById('recording-status-indicator');
+        const recordingIdleText = document.getElementById('recording-idle-text');
+        const recordingStatusText = document.getElementById('recording-status-text');
+
+        startRecordBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    const duration = (Date.now() - recordingStartTime) / 1000;
+                    recordingStatusText.innerHTML = `<i class="fas fa-check-circle" style="color: var(--success);"></i> Recording complete (${duration.toFixed(1)}s)`;
+                    
+                    analyzeRecordBtn.disabled = false;
+                };
+
+                mediaRecorder.start();
+                recordingStartTime = Date.now();
+                
+                startRecordBtn.style.display = 'none';
+                stopRecordBtn.style.display = 'inline-flex';
+                discardRecordBtn.style.display = 'inline-flex';
+                recordingStatusIndicator.style.display = 'block';
+                recordingIdleText.style.display = 'none';
+                recordingTimeDisplay.style.display = 'block';
+
+                // Timer
+                clearInterval(recordingTimer);
+                recordingTimer = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const secs = (elapsed % 60).toString().padStart(2, '0');
+                    recordingTimeDisplay.textContent = `${mins}:${secs}`;
+                }, 100);
+
+                recordingStatusText.textContent = '';
+            } catch (error) {
+                alert(`Microphone access denied: ${error.message}`);
+            }
+        });
+
+        stopRecordBtn.addEventListener('click', () => {
+            mediaRecorder.stop();
+            clearInterval(recordingTimer);
+            
+            startRecordBtn.style.display = 'inline-flex';
+            stopRecordBtn.style.display = 'none';
+            recordingStatusIndicator.style.display = 'none';
+        });
+
+        discardRecordBtn.addEventListener('click', () => {
+            mediaRecorder.stop();
+            clearInterval(recordingTimer);
+            recordedChunks = [];
+            recordedBlob = null;
+            
+            startRecordBtn.style.display = 'inline-flex';
+            stopRecordBtn.style.display = 'none';
+            discardRecordBtn.style.display = 'none';
+            recordingIdleText.style.display = 'block';
+            recordingTimeDisplay.style.display = 'none';
+            recordingStatusIndicator.style.display = 'none';
+            recordingStatusText.textContent = '';
+            analyzeRecordBtn.disabled = true;
+
+            if (mediaRecorder && mediaRecorder.stream) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        analyzeRecordBtn.addEventListener('click', async () => {
+            if (!recordedBlob) {
+                alert('No recording available');
+                return;
+            }
+
+            predictBtn.disabled = true;
+            analyzeRecordBtn.disabled = true;
+
+            const file = new File([recordedBlob], 'recording.wav', { type: 'audio/wav' });
+            selectedFile = file;
+
+            resultContainer.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem; animation: spin 2s linear infinite;">
+                        <i class="fas fa-circle-notch"></i>
+                    </div>
+                    <p style="color: #6b7280; margin-top: 1rem;">Processing audio. This may take a few moments...</p>
+                </div>
+            `;
+            resultContainer.classList.add('show');
+            visualizationContainer.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('http://localhost:8000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Draw waveform from recorded blob
+                    const arrayBuffer = await recordedBlob.arrayBuffer();
+                    setTimeout(() => drawWaveform(arrayBuffer), 100);
+                    
+                    // Display spectrogram
+                    const spectrogramImg = document.getElementById('spectrogram-img');
+                    if (spectrogramImg && data.spectrogram) {
+                        spectrogramImg.src = data.spectrogram;
+                    }
+                    visualizationContainer.style.display = 'block';
+                    
+                    // Display results
+                    displayResults(data);
+                } else {
+                    showError(data.error || 'Analysis failed');
+                }
+            } catch (error) {
+                showError(`Connection error: ${error.message}`);
+            }
+
+            analyzeRecordBtn.disabled = false;
+            predictBtn.disabled = false;
+        });
     </script>
 </body>
 </html>
