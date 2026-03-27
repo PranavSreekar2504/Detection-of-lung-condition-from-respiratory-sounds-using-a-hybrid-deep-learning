@@ -1,18 +1,19 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+import os
 import torch
 from torchvision import transforms
 from PIL import Image
 import io
 import base64
 import numpy as np
-from model_dummy import DummyLungDetector, CLASS_NAMES, CLASS_DESCRIPTIONS, CLASS_RECOMMENDATIONS
+from model import HybridResNetLungDetector, CLASS_NAMES, CLASS_DESCRIPTIONS, CLASS_RECOMMENDATIONS
 from preprocess import preprocess_audio
 
 app = FastAPI(
     title="RespiCare - Lung Disease Detection API",
-    description="AI-powered respiratory disease detection from audio (DEMO MODE)",
+    description="AI-powered respiratory disease detection from audio",
     version="1.0.0"
 )
 
@@ -25,15 +26,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load dummy model
+# Load real hybrid model
+model_path = "cascade_hybrid_model.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"✓ Using device: {device}")
-print("✓ Running in DEMO MODE with dummy model")
 
-model = DummyLungDetector(num_classes=6)
+model = HybridResNetLungDetector(num_classes=len(CLASS_NAMES), pretrained=False)
 model = model.to(device)
+
+if os.path.isfile(model_path):
+    print(f"✓ Found model weights at: {model_path}")
+    checkpoint = torch.load(model_path, map_location=device)
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        model_state_dict = checkpoint["state_dict"]
+    else:
+        model_state_dict = checkpoint
+    model.load_state_dict(model_state_dict)
+    print("✓ Loaded model weights successfully")
+else:
+    print(f"⚠ Warning: model file not found at {model_path}. Using randomly initialized model")
+
 model.eval()
-print("✓ Dummy model initialized successfully")
+print("✓ HybridResNet model ready")
 
 # Image transforms for model input
 transform = transforms.Compose([
@@ -93,38 +107,26 @@ async def predict(file: UploadFile = File(...)):
         
         # Preprocess audio
         img, mel_spec_db, mfcc, y, sr = preprocess_audio(audio_bytes)
-        
-        # Generate demo prediction based on audio features for realistic variation
-        # Use audio characteristics as seed for consistent but varied predictions
-        audio_hash = hash(y.tobytes()) % 100
-        seed = (audio_hash + len(y)) % 1000
-        np.random.seed(seed)
-        
-        # Create realistic probability distribution
-        base_probs = np.random.dirichlet(np.ones(6) * 2)  # Dirichlet for realistic distribution
-        
-        # Bias towards normal (most common)
-        if np.random.random() > 0.3:  # 70% chance of normal
-            base_probs[0] *= 1.5
-        
-        # Normalize to probabilities
-        probabilities_np = base_probs / base_probs.sum()
-        pred_idx = int(np.argmax(probabilities_np))
-        confidence = float(probabilities_np[pred_idx])
-        
-        # Convert to torch for compatibility
-        probabilities = torch.from_numpy(probabilities_np).float()
-        
+
+        # Convert input to tensor and evaluate
+        img_tensor = transform(img).unsqueeze(0).to(device)
+        with torch.no_grad():
+            logits = model(img_tensor)
+            probabilities = torch.softmax(logits, dim=1).cpu().numpy()[0]
+
+        pred_idx = int(np.argmax(probabilities))
+        confidence = float(probabilities[pred_idx])
+
         # Get predictions for all classes
         all_predictions = {
-            CLASS_NAMES[i]: float(probabilities_np[i])
+            CLASS_NAMES[i]: float(probabilities[i])
             for i in range(len(CLASS_NAMES))
         }
-        
+
         prediction = CLASS_NAMES[pred_idx]
         description = CLASS_DESCRIPTIONS.get(pred_idx, "Unknown condition")
         recommendation = CLASS_RECOMMENDATIONS.get(pred_idx, "Consult healthcare professional")
-        
+
         # Create severity level
         severity_map = {
             0: "Normal",
@@ -135,7 +137,7 @@ async def predict(file: UploadFile = File(...)):
             5: "Critical"
         }
         severity = severity_map.get(pred_idx, "Unknown")
-        
+
         # Convert spectrogram to base64
         spectrogram_b64 = convert_spectrogram_to_base64(mel_spec_db)
         
