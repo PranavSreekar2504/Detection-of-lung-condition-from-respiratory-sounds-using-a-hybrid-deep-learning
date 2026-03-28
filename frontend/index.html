@@ -1348,6 +1348,10 @@
                 mediaRecorder.start();
                 recordingStartTime = Date.now();
                 
+                startRecordBtn.disabled = true;
+                stopRecordBtn.disabled = false;
+                discardRecordBtn.disabled = false;
+
                 startRecordBtn.style.display = 'none';
                 stopRecordBtn.style.display = 'inline-flex';
                 discardRecordBtn.style.display = 'inline-flex';
@@ -1371,18 +1375,46 @@
         });
 
         stopRecordBtn.addEventListener('click', () => {
-            mediaRecorder.stop();
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
             clearInterval(recordingTimer);
-            
+
+            startRecordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+            discardRecordBtn.disabled = true;
+
             startRecordBtn.style.display = 'inline-flex';
             stopRecordBtn.style.display = 'none';
+            discardRecordBtn.style.display = 'none';
             recordingStatusIndicator.style.display = 'none';
         });
 
         discardRecordBtn.addEventListener('click', () => {
-            mediaRecorder.stop();
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
             clearInterval(recordingTimer);
             recordedChunks = [];
+            recordedBlob = null;
+
+            startRecordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+            discardRecordBtn.disabled = true;
+            analyzeRecordBtn.disabled = true;
+
+            startRecordBtn.style.display = 'inline-flex';
+            stopRecordBtn.style.display = 'none';
+            discardRecordBtn.style.display = 'none';
+            recordingIdleText.style.display = 'block';
+            recordingTimeDisplay.style.display = 'none';
+            recordingStatusIndicator.style.display = 'none';
+            recordingStatusText.textContent = '';
+
+            if (mediaRecorder && mediaRecorder.stream) {
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        });
             recordedBlob = null;
             
             startRecordBtn.style.display = 'inline-flex';
