@@ -1299,11 +1299,14 @@
             const sevInfo = severityColors[severity] || severityColors['Moderate'];
 
             const orderedClasses = ['Normal', 'Asthma', 'Pneumonia', 'COPD', 'Bronchitis', 'COVID-19'];
+            if (typeof allPredictions.Normal !== 'number') {
+                allPredictions.Normal = 0;
+            }
+
             let predictionsHTML = '<div style="margin-top: 1.5rem;"><h4 style="margin-bottom: 1rem; color: var(--primary);">All Predictions:</h4>';
             orderedClasses.forEach((name) => {
                 const conf = allPredictions[name];
-                if (typeof conf !== 'number') return;
-                const percentage = (conf * 100).toFixed(2);
+                const percentage = (typeof conf === 'number') ? (conf * 100).toFixed(2) : '0.00';
                 const isMain = name === prediction;
                 predictionsHTML += `
                     <div style="margin-bottom: 1rem;">
