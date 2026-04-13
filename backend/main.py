@@ -122,6 +122,8 @@ async def predict(file: UploadFile = File(...)):
             CLASS_NAMES[i]: float(probabilities[i])
             for i in range(len(CLASS_NAMES))
         }
+        if "Normal" not in all_predictions:
+            all_predictions["Normal"] = 0.0
 
         prediction = CLASS_NAMES[pred_idx]
         description = CLASS_DESCRIPTIONS.get(pred_idx, "Unknown condition")

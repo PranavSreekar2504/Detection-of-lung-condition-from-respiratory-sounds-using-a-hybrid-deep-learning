@@ -1306,7 +1306,9 @@
             let predictionsHTML = '<div style="margin-top: 1.5rem;"><h4 style="margin-bottom: 1rem; color: var(--primary);">All Predictions:</h4>';
             orderedClasses.forEach((name) => {
                 const conf = allPredictions[name];
-                const percentage = (typeof conf === 'number') ? (conf * 100).toFixed(2) : '0.00';
+                const rawValue = (typeof conf === 'number') ? conf : 0;
+                const percentage = (rawValue * 100).toFixed(2);
+                const barWidth = rawValue > 0 ? percentage : '0.5';
                 const isMain = name === prediction;
                 predictionsHTML += `
                     <div style="margin-bottom: 1rem;">
@@ -1315,7 +1317,7 @@
                             <span style="color: var(--primary); font-weight: 600;">${percentage}%</span>
                         </div>
                         <div style="background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="background: linear-gradient(90deg, #3b82f6, #0891b2); height: 100%; width: ${percentage}%; transition: width 0.5s ease;"></div>
+                            <div style="background: linear-gradient(90deg, #3b82f6, #0891b2); height: 100%; width: ${barWidth}%; transition: width 0.5s ease;"></div>
                         </div>
                     </div>
                 `;
