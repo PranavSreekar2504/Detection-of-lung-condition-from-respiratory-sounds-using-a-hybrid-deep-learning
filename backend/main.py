@@ -129,11 +129,12 @@ async def predict(file: UploadFile = File(...)):
 
         # Create severity level
         severity_map = {
-            0: "Moderate",   # Asthma
-            1: "High",       # Pneumonia
-            2: "Moderate",   # COPD
-            3: "Moderate",   # Bronchitis
-            4: "Critical"    # COVID-19
+            0: "Normal",     # Normal
+            1: "Moderate",   # Asthma
+            2: "High",       # Pneumonia
+            3: "Moderate",   # COPD
+            4: "Moderate",   # Bronchitis
+            5: "Critical"    # COVID-19
         }
         severity = severity_map.get(pred_idx, "Unknown")
 

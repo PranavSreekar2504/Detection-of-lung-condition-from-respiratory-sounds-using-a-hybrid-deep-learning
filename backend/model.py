@@ -21,7 +21,7 @@ class HybridResNetLungDetector(nn.Module):
     5: COVID-19
     """
     
-    def __init__(self, num_classes=5, pretrained=True):
+    def __init__(self, num_classes=6, pretrained=True):
         super().__init__()
         self.num_classes = num_classes
         
@@ -83,6 +83,7 @@ class HybridResNetLungDetector(nn.Module):
 
 # Disease class names
 CLASS_NAMES = [
+    "Normal",
     "Asthma",
     "Pneumonia",
     "COPD",
@@ -91,17 +92,19 @@ CLASS_NAMES = [
 ]
 
 CLASS_DESCRIPTIONS = {
-    0: "Asthma - Chronic airway inflammation",
-    1: "Pneumonia - Lung infection with fluid accumulation",
-    2: "COPD - Chronic obstructive pulmonary disease",
-    3: "Bronchitis - Inflammation of bronchi tubes",
-    4: "COVID-19 - Novel coronavirus infection"
+    0: "Normal - No significant lung condition detected",
+    1: "Asthma - Chronic airway inflammation",
+    2: "Pneumonia - Lung infection with fluid accumulation",
+    3: "COPD - Chronic obstructive pulmonary disease",
+    4: "Bronchitis - Inflammation of bronchi tubes",
+    5: "COVID-19 - Novel coronavirus infection"
 }
 
 CLASS_RECOMMENDATIONS = {
-    0: "Consult pulmonologist. Use appropriate inhalers.",
-    1: "Urgent medical evaluation required.",
-    2: "Specialist consultation needed.",
-    3: "Medical evaluation recommended. Rest and monitor symptoms.",
-    4: "Isolate and seek immediate medical attention."
+    0: "No medical intervention required. Maintain healthy lifestyle.",
+    1: "Consult pulmonologist. Use appropriate inhalers.",
+    2: "Urgent medical evaluation required.",
+    3: "Specialist consultation needed.",
+    4: "Medical evaluation recommended. Rest and monitor symptoms.",
+    5: "Isolate and seek immediate medical attention."
 }
