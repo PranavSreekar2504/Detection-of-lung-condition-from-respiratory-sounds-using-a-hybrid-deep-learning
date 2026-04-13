@@ -1298,9 +1298,11 @@
 
             const sevInfo = severityColors[severity] || severityColors['Moderate'];
 
-            // Build predictions list
+            const orderedClasses = ['Normal', 'Asthma', 'Pneumonia', 'COPD', 'Bronchitis', 'COVID-19'];
             let predictionsHTML = '<div style="margin-top: 1.5rem;"><h4 style="margin-bottom: 1rem; color: var(--primary);">All Predictions:</h4>';
-            Object.entries(allPredictions).forEach(([name, conf]) => {
+            orderedClasses.forEach((name) => {
+                const conf = allPredictions[name];
+                if (typeof conf !== 'number') return;
                 const percentage = (conf * 100).toFixed(2);
                 const isMain = name === prediction;
                 predictionsHTML += `

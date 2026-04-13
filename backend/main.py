@@ -184,15 +184,20 @@ async def batch_predict(files: list[UploadFile] = File(...)):
             img_tensor = transform(img).unsqueeze(0).to(device)
             with torch.no_grad():
                 output = model(img_tensor)
-                probabilities = torch.softmax(output, dim=1)
-                pred_idx = probabilities.argmax(1).item()
-                confidence = probabilities[0][pred_idx].item()
+                probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
+                pred_idx = int(np.argmax(probabilities))
+                confidence = float(probabilities[pred_idx])
+                all_predictions = {
+                    CLASS_NAMES[i]: float(probabilities[i])
+                    for i in range(len(CLASS_NAMES))
+                }
             
             results.append({
                 "filename": file.filename,
                 "prediction": CLASS_NAMES[pred_idx],
                 "confidence": confidence,
-                "class_index": pred_idx
+                "class_index": pred_idx,
+                "all_predictions": all_predictions
             })
         except Exception as e:
             results.append({
