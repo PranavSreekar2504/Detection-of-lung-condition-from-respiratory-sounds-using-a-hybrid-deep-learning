@@ -27,24 +27,45 @@ app.add_middleware(
 )
 
 # Load real hybrid model
-model_path = "cascade_hybrid_model.pth"
+BASE_DIR = os.path.dirname(__file__)
+model_name = os.getenv("MODEL_PATH", "cascade_hybrid_model.pth")
+model_path = os.path.join(BASE_DIR, model_name)
+
+# support common alternate filenames
+alt_paths = [
+    os.path.join(BASE_DIR, "cascade_hybrid_model.pth"),
+    os.path.join(BASE_DIR, "model.pth"),
+    os.path.join(BASE_DIR, "backend", "model.pth")
+]
+if not os.path.isfile(model_path):
+    for alt in alt_paths:
+        if os.path.isfile(alt):
+            model_path = alt
+            break
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"✓ Using device: {device}")
+print(f"ℹ Attempting to load model from: {model_path}")
 
 model = HybridResNetLungDetector(num_classes=len(CLASS_NAMES), pretrained=False)
 model = model.to(device)
+model_loaded = False
 
 if os.path.isfile(model_path):
-    print(f"✓ Found model weights at: {model_path}")
-    checkpoint = torch.load(model_path, map_location=device)
-    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-        model_state_dict = checkpoint["state_dict"]
-    else:
-        model_state_dict = checkpoint
-    model.load_state_dict(model_state_dict)
-    print("✓ Loaded model weights successfully")
+    try:
+        checkpoint = torch.load(model_path, map_location=device)
+        if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+            model_state_dict = checkpoint["state_dict"]
+        else:
+            model_state_dict = checkpoint
+        model.load_state_dict(model_state_dict)
+        model_loaded = True
+        print("✓ Loaded model weights successfully")
+    except Exception as load_error:
+        print(f"✗ Failed to load model weights: {load_error}")
+        model_loaded = False
 else:
-    print(f"⚠ Warning: model file not found at {model_path}. Using randomly initialized model")
+    print(f"⚠ Warning: model file not found at {model_path}. Prediction service will be disabled until weights are added.")
 
 model.eval()
 print("✓ HybridResNet model ready")
@@ -105,6 +126,12 @@ async def predict(file: UploadFile = File(...)):
                 status_code=400
             )
         
+        if not model_loaded:
+            return JSONResponse(
+                content={"error": "Model weights not loaded. Please place the trained .pth file in backend/ and restart the server."},
+                status_code=503
+            )
+
         # Preprocess audio
         img, mel_spec_db, mfcc, y, sr = preprocess_audio(audio_bytes)
 
@@ -178,7 +205,14 @@ async def batch_predict(files: list[UploadFile] = File(...)):
     for file in files:
         try:
             audio_bytes = await file.read()
-            
+
+            if not model_loaded:
+                results.append({
+                    "filename": file.filename,
+                    "error": "Model weights not loaded. Please add the trained .pth file to backend/ and restart the server."
+                })
+                continue
+
             # Preprocess
             img, mel_spec_db, mfcc, y, sr = preprocess_audio(audio_bytes)
             
