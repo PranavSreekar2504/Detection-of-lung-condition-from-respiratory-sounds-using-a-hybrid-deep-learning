@@ -181,3 +181,88 @@ def preprocess_audio(audio_bytes):
     img = spectrogram_to_image(mel_spec_db)
     
     return img, mel_spec_db, mfcc, y, sr
+
+def get_audio_chunks(y, sr, chunk_duration=3.0, hop_duration=1.5):
+    """
+    Split audio into overlapping chunks.
+    """
+    chunk_length = int(chunk_duration * sr)
+    hop_length = int(hop_duration * sr)
+    
+    if len(y) <= chunk_length:
+        # Pad if too short
+        pad_width = chunk_length - len(y)
+        y = np.pad(y, (0, pad_width), mode='constant')
+        return [y]
+        
+    chunks = []
+    for start in range(0, len(y) - chunk_length + 1, hop_length):
+        chunks.append(y[start:start + chunk_length])
+        
+    # Add the last chunk if it's not fully covered
+    if (len(y) - chunk_length) % hop_length != 0:
+        chunks.append(y[-chunk_length:])
+        
+    return chunks
+
+def augment_audio(y, sr):
+    """
+    Generate test-time augmentations (TTA).
+    """
+    augmentations = [y] # Original
+    
+    # 1. Pitch shift (+2 steps)
+    try:
+        y_pitch_up = librosa.effects.pitch_shift(y=y, sr=sr, n_steps=2.0)
+        augmentations.append(y_pitch_up)
+    except Exception:
+        pass
+        
+    # 2. Add slight noise
+    noise = np.random.randn(len(y))
+    y_noise = y + 0.005 * noise
+    augmentations.append(y_noise)
+    
+    return augmentations
+
+def preprocess_audio_chunks(audio_bytes, max_pad_len=862):
+    """
+    Preprocess audio into chunks that EXACTLY match the training pipeline.
+    Training used: librosa load -> mel spectrogram -> power_to_db -> z-score normalize -> pad to 862 -> 3-channel tensor
+    """
+    import torch
+    
+    y, sr = load_audio(audio_bytes)
+    y = remove_silence(y, sr)
+    y = normalize_amplitude(y)
+    
+    # For visualization use full audio mel spec
+    full_mel_spec_db = extract_mel_spectrogram(y, sr)
+    
+    chunks = get_audio_chunks(y, sr, chunk_duration=10.0, hop_duration=5.0)
+    
+    all_tensors = []
+    for chunk in chunks:
+        # Compute mel spectrogram exactly as in training
+        mel = librosa.feature.melspectrogram(
+            y=chunk, sr=sr,
+            n_mels=128, n_fft=2048, hop_length=512,
+            fmin=50, fmax=4000
+        )
+        log_mel = librosa.power_to_db(mel, ref=np.max)
+        
+        # Pad or truncate to fixed length (matching max_pad_len=862 in training)
+        if log_mel.shape[1] > max_pad_len:
+            log_mel = log_mel[:, :max_pad_len]
+        else:
+            pad_width = max_pad_len - log_mel.shape[1]
+            log_mel = np.pad(log_mel, ((0, 0), (0, pad_width)), mode='constant')
+        
+        # Z-score normalization — MUST match training
+        log_mel = (log_mel - np.mean(log_mel)) / (np.std(log_mel) + 1e-6)
+        
+        # Convert to 3-channel float tensor [3, 128, 862]
+        tensor = torch.FloatTensor(log_mel).unsqueeze(0).repeat(3, 1, 1)
+        all_tensors.append(tensor)
+    
+    return all_tensors, full_mel_spec_db, y, sr

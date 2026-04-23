@@ -1,68 +1,46 @@
-# Lung Condition Detection Pipeline
+# RespiCare: Hybrid Deep Learning for Lung Condition Detection
 
-An end-to-end pipeline for detecting lung conditions from respiratory sounds using a hybrid deep learning model.
+RespiCare is a state-of-the-art diagnostic platform that uses a hybrid ResNet architecture (ResNet50 + ResNet34) to detect various respiratory conditions from audio recordings.
 
-## Architecture
+## Features
+- **Hybrid Model:** Combines features from ResNet50 and ResNet34 for superior diagnostic accuracy.
+- **Multi-Class Detection:** Detects Normal, Asthma, Pneumonia, COPD, Bronchitis, and COVID-19.
+- **FastAPI Backend:** High-performance inference engine with audio chunking and specialized aggregation.
+- **Modern UI:** Glassmorphic, responsive web interface for real-time analysis.
 
-- **Frontend**: HTML/JavaScript interface for uploading audio files
-- **Backend**: FastAPI server with PyTorch model for inference
-- **Deployment**: Docker containerized application
+## Project Structure
+- `backend/`: FastAPI application and inference logic.
+- `frontend/`: Web interface (HTML/CSS/JS).
+- `src/`: Training pipeline and dataset utilities.
+- `models/`: Trained model checkpoints.
+- `data/`: (Local only) ICBHI and Coswara dataset files.
 
-## Setup
+## Getting Started
 
-1. **Train and Save Model**:
-   - Run the `ResNet_Model.ipynb` notebook
-   - After training, save the model:
-   ```python
-   torch.save(model.state_dict(), 'backend/model.pth')
-   ```
+### Prerequisites
+- Python 3.9+
+- librosa, torch, torchaudio, fastapi, uvicorn
 
-2. **Place Model File**:
-   - Copy the trained model file to `backend/model.pth`
+### Installation
+1. Clone the repository.
+2. Create a virtual environment: `python -m venv .venv`.
+3. Activate the environment: `source .venv/bin/activate`.
+4. Install dependencies: `pip install -r requirements.txt`.
 
-3. **Build and Run**:
+### Running the Application
+1. Start the backend:
    ```bash
-   docker-compose up --build
+   cd backend
+   uvicorn main:app --reload
    ```
+2. Open `frontend/index.html` in your browser.
 
-4. **Access Application**:
-   - Frontend: http://localhost
-   - API: http://localhost/api/predict
-
-## API Usage
-
-POST to `/api/predict` with an audio file:
-
+## Training
+To retrain the model, use the scripts in the `src/` directory:
 ```bash
-curl -X POST -F "file=@audio.wav" http://localhost/api/predict
+python src/train.py
 ```
 
-Response:
-```json
-{
-  "prediction": "Normal",
-  "confidence": 0.95,
-  "class_index": 0
-}
-```
-
-## Classes
-
-- 0: Normal
-- 1: Wheeze
-- 2: Crackle
-- 3: Both
-
-## Deployment
-
-For production deployment:
-
-1. Build the Docker images
-2. Push to a container registry
-3. Deploy to cloud platform (AWS ECS, Google Cloud Run, etc.)
-
-## Requirements
-
-- Docker
-- Docker Compose
-- Trained PyTorch model file
+## Dataset Credits
+- ICBHI 2017 Challenge Dataset
+- Coswara COVID-19 Dataset

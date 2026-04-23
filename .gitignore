@@ -1,27 +1,27 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*$py.class
+.env
+.venv/
 env/
 venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+ENV/
+env.bak/
+venv.bak/
+
+# Project Specific
+data/
+models/*.pth
 *.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
-*.pth
-*.pkl
-model.pth
-model.pkl
+*.pid
 .DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Distribution / Build
+dist/
+build/
+*.egg-info/

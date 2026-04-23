@@ -9,7 +9,7 @@ import io
 import base64
 import numpy as np
 from model import HybridResNetLungDetector, CLASS_NAMES, CLASS_DESCRIPTIONS, CLASS_RECOMMENDATIONS
-from preprocess import preprocess_audio
+from preprocess import preprocess_audio, preprocess_audio_chunks
 
 app = FastAPI(
     title="RespiCare - Lung Disease Detection API",
@@ -27,45 +27,25 @@ app.add_middleware(
 )
 
 # Load real hybrid model
-BASE_DIR = os.path.dirname(__file__)
-model_name = os.getenv("MODEL_PATH", "cascade_hybrid_model.pth")
-model_path = os.path.join(BASE_DIR, model_name)
-
-# support common alternate filenames
-alt_paths = [
-    os.path.join(BASE_DIR, "cascade_hybrid_model.pth"),
-    os.path.join(BASE_DIR, "model.pth"),
-    os.path.join(BASE_DIR, "backend", "model.pth")
-]
-if not os.path.isfile(model_path):
-    for alt in alt_paths:
-        if os.path.isfile(alt):
-            model_path = alt
-            break
-
+model_path = "../models/cascade_hybrid_model.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"✓ Using device: {device}")
-print(f"ℹ Attempting to load model from: {model_path}")
 
 model = HybridResNetLungDetector(num_classes=len(CLASS_NAMES), pretrained=False)
 model = model.to(device)
-model_loaded = False
 
 if os.path.isfile(model_path):
-    try:
-        checkpoint = torch.load(model_path, map_location=device)
-        if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-            model_state_dict = checkpoint["state_dict"]
-        else:
-            model_state_dict = checkpoint
-        model.load_state_dict(model_state_dict)
-        model_loaded = True
-        print("✓ Loaded model weights successfully")
-    except Exception as load_error:
-        print(f"✗ Failed to load model weights: {load_error}")
-        model_loaded = False
+    print(f"✓ Found model weights at: {model_path}")
+    checkpoint = torch.load(model_path, map_location=device)
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        model_state_dict = checkpoint["state_dict"]
+    else:
+        model_state_dict = checkpoint
+
+    model.load_state_dict(model_state_dict, strict=True)
+    print("✓ Loaded model weights successfully")
 else:
-    print(f"⚠ Warning: model file not found at {model_path}. Prediction service will be disabled until weights are added.")
+    print(f"⚠ Warning: model file not found at {model_path}. Using randomly initialized model")
 
 model.eval()
 print("✓ HybridResNet model ready")
@@ -126,20 +106,26 @@ async def predict(file: UploadFile = File(...)):
                 status_code=400
             )
         
-        if not model_loaded:
-            return JSONResponse(
-                content={"error": "Model weights not loaded. Please place the trained .pth file in backend/ and restart the server."},
-                status_code=503
-            )
+        # Preprocess audio with chunking (returns tensors matching training)
+        tensors, mel_spec_db, y, sr = preprocess_audio_chunks(audio_bytes)
 
-        # Preprocess audio
-        img, mel_spec_db, mfcc, y, sr = preprocess_audio(audio_bytes)
-
-        # Convert input to tensor and evaluate
-        img_tensor = transform(img).unsqueeze(0).to(device)
+        # Evaluate all chunks
+        all_probabilities = []
         with torch.no_grad():
-            logits = model(img_tensor)
-            probabilities = torch.softmax(logits, dim=1).cpu().numpy()[0]
+            for tensor in tensors:
+                # tensor is already [3, 128, 862], just move to device and add batch dim
+                input_tensor = tensor.unsqueeze(0).to(device)
+                logits = model(input_tensor)
+                probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
+                all_probabilities.append(probs)
+
+        # Average probabilities across all chunks — more balanced than max-pooling
+        # Max-pooling was causing COPD to dominate by amplifying any single chunk.
+        all_probs_np = np.array(all_probabilities)
+        probabilities = np.mean(all_probs_np, axis=0)
+        
+        # Re-normalize to ensure probabilities sum to 1
+        probabilities = probabilities / (np.sum(probabilities) + 1e-9)
 
         pred_idx = int(np.argmax(probabilities))
         confidence = float(probabilities[pred_idx])
@@ -149,8 +135,6 @@ async def predict(file: UploadFile = File(...)):
             CLASS_NAMES[i]: float(probabilities[i])
             for i in range(len(CLASS_NAMES))
         }
-        if "Normal" not in all_predictions:
-            all_predictions["Normal"] = 0.0
 
         prediction = CLASS_NAMES[pred_idx]
         description = CLASS_DESCRIPTIONS.get(pred_idx, "Unknown condition")
@@ -158,12 +142,12 @@ async def predict(file: UploadFile = File(...)):
 
         # Create severity level
         severity_map = {
-            0: "Normal",     # Normal
-            1: "Moderate",   # Asthma
-            2: "High",       # Pneumonia
-            3: "Moderate",   # COPD
-            4: "Moderate",   # Bronchitis
-            5: "Critical"    # COVID-19
+            0: "Normal",
+            1: "Moderate",
+            2: "High",
+            3: "Moderate",
+            4: "Moderate",
+            5: "Critical"
         }
         severity = severity_map.get(pred_idx, "Unknown")
 
@@ -205,35 +189,30 @@ async def batch_predict(files: list[UploadFile] = File(...)):
     for file in files:
         try:
             audio_bytes = await file.read()
-
-            if not model_loaded:
-                results.append({
-                    "filename": file.filename,
-                    "error": "Model weights not loaded. Please add the trained .pth file to backend/ and restart the server."
-                })
-                continue
-
-            # Preprocess
-            img, mel_spec_db, mfcc, y, sr = preprocess_audio(audio_bytes)
+            
+            # Preprocess with chunking (returns tensors)
+            tensors, mel_spec_db, y, sr = preprocess_audio_chunks(audio_bytes)
             
             # Predict
-            img_tensor = transform(img).unsqueeze(0).to(device)
+            all_probabilities = []
             with torch.no_grad():
-                output = model(img_tensor)
-                probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
-                pred_idx = int(np.argmax(probabilities))
-                confidence = float(probabilities[pred_idx])
-                all_predictions = {
-                    CLASS_NAMES[i]: float(probabilities[i])
-                    for i in range(len(CLASS_NAMES))
-                }
+                for tensor in tensors:
+                    input_tensor = tensor.unsqueeze(0).to(device)
+                    output = model(input_tensor)
+                    probs = torch.softmax(output, dim=1).cpu().numpy()[0]
+                    all_probabilities.append(probs)
+            
+            all_probs_np = np.array(all_probabilities)
+            probabilities = np.mean(all_probs_np, axis=0)
+            probabilities = probabilities / (np.sum(probabilities) + 1e-9)
+            pred_idx = int(np.argmax(probabilities))
+            confidence = float(probabilities[pred_idx])
             
             results.append({
                 "filename": file.filename,
                 "prediction": CLASS_NAMES[pred_idx],
                 "confidence": confidence,
-                "class_index": pred_idx,
-                "all_predictions": all_predictions
+                "class_index": pred_idx
             })
         except Exception as e:
             results.append({
